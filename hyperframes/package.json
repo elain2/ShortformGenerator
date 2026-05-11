@@ -1,0 +1,33 @@
+{
+  "name": "shorts-video-generator",
+  "version": "1.0.0",
+  "description": "HyperFrames 기반 숏츠 비디오 자동 생성",
+  "main": "index.html",
+  "scripts": {
+    "preview": "npx hyperframes preview",
+    "render": "npx hyperframes render -o ../output/final.mp4",
+    "render:quality": "npx hyperframes render -o ../output/final.mp4 --quality high",
+    "dev": "npx hyperframes dev"
+  },
+  "dependencies": {
+    "gsap": "^3.12.2"
+  },
+  "devDependencies": {
+    "hyperframes": "^0.1.0"
+  },
+  "hyperframes": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration": 60,
+    "entry": "index.html"
+  },
+  "keywords": [
+    "shorts",
+    "video",
+    "hyperframes",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT"
+}

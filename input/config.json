@@ -1,0 +1,59 @@
+{
+  "project": {
+    "name": "ShortVideoGenerator",
+    "description": "HyperFrames 기반 숏츠 비디오 자동 생성 파이프라인"
+  },
+
+  "video": {
+    "output_width": 1080,
+    "output_height": 1920,
+    "fps": 30,
+    "codec": "libx264",
+    "crf": 23,
+    "preset": "medium"
+  },
+
+  "highlight_extraction": {
+    "analysis_width": 320,
+    "analysis_height": 180,
+    "analysis_fps": 2,
+    "min_clip_duration": 3.0,
+    "max_clip_duration": 15.0,
+    "highlight_threshold": 0.5,
+    "scoring_weights": {
+      "motion": 0.40,
+      "color": 0.35,
+      "subject": 0.25
+    }
+  },
+
+  "subtitle": {
+    "syllable_rate": 3.5,
+    "min_subtitle_duration": 1.0,
+    "max_subtitle_duration": 5.0,
+    "max_chars_per_line": 20,
+    "style": {
+      "font_size": 52,
+      "font_weight": 600,
+      "color": "#FFF8E7",
+      "position_bottom": 120,
+      "fade_in_duration": 0.3,
+      "fade_out_duration": 0.2
+    }
+  },
+
+  "bgm": {
+    "volume": 0.3,
+    "fade_in_duration": 1.0,
+    "fade_out_duration": 2.0
+  },
+
+  "paths": {
+    "input_videos": "input/videos",
+    "input_script": "input/script.txt",
+    "output_highlights": "output/highlights",
+    "output_subtitles": "output/subtitles.json",
+    "highlights_manifest": "output/highlights_manifest.json",
+    "hyperframes_assets": "hyperframes/assets/highlights"
+  }
+}

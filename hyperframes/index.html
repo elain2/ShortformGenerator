@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>Shorts Video Composition</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- HyperFrames 메타데이터 -->
+    <meta name="hyperframes:width" content="1080">
+    <meta name="hyperframes:height" content="1920">
+    <meta name="hyperframes:fps" content="30">
+    <meta name="hyperframes:duration" content="60">
+</head>
+<body>
+    <!-- 비디오 레이어 -->
+    <div id="video-layer" class="layer">
+        <video id="main-video" muted playsinline>
+            <source src="assets/highlights/clip.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <!-- 자막 레이어 -->
+    <div id="subtitle-layer" class="layer">
+        <div id="subtitle-container">
+            <p id="subtitle-text"></p>
+        </div>
+    </div>
+
+    <!-- BGM 레이어 (오디오) -->
+    <audio id="bgm" loop>
+        <source src="assets/bgm.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- 스크립트 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="animation.js"></script>
+
+    <!-- HyperFrames 데이터 -->
+    <script type="application/json" id="composition-data">
+    {
+        "clips": [],
+        "subtitles": [],
+        "bgm": {
+            "src": "assets/bgm.mp3",
+            "volume": 0.3
+        },
+        "settings": {
+            "width": 1080,
+            "height": 1920,
+            "fps": 30,
+            "background": "#000000"
+        }
+    }
+    </script>
+</body>
+</html>
