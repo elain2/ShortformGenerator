@@ -28,9 +28,9 @@ class HighlightSegment:
 class HighlightExtractor:
     """비디오에서 하이라이트 구간을 추출하는 클래스"""
 
-    # 분석 설정
-    ANALYSIS_WIDTH = 320
-    ANALYSIS_HEIGHT = 180
+    # 분석 설정 (9:16 세로 비율)
+    ANALYSIS_WIDTH = 180
+    ANALYSIS_HEIGHT = 320
     ANALYSIS_FPS = 2
 
     # 스코어링 가중치
@@ -55,6 +55,27 @@ class HighlightExtractor:
                 return json.load(f)
         return {}
 
+    def _center_crop_to_portrait(self, frame: np.ndarray) -> np.ndarray:
+        """16:9 가로 영상을 9:16 세로 비율로 센터 크롭"""
+        h, w = frame.shape[:2]
+
+        # 이미 세로 영상이면 그대로 반환
+        if h >= w:
+            return frame
+
+        # 9:16 비율로 크롭할 너비 계산 (높이 기준)
+        target_width = int(h * 9 / 16)
+
+        # 너비가 원본보다 크면 원본 너비 사용
+        if target_width > w:
+            target_width = w
+
+        # 센터 크롭
+        x_start = (w - target_width) // 2
+        cropped = frame[:, x_start:x_start + target_width]
+
+        return cropped
+
     def analyze_video(self, video_path: str) -> List[HighlightSegment]:
         """비디오 분석하여 하이라이트 구간 탐지"""
         cap = cv2.VideoCapture(video_path)
@@ -63,9 +84,16 @@ class HighlightExtractor:
 
         original_fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         duration = total_frames / original_fps
 
+        # 가로/세로 영상 판별
+        is_landscape = original_width > original_height
+        aspect_info = "16:9 가로 → 9:16 센터크롭" if is_landscape else "세로 영상"
+
         print(f"비디오 분석 중: {video_path}")
+        print(f"  - 해상도: {original_width}x{original_height} ({aspect_info})")
         print(f"  - 길이: {duration:.1f}초, FPS: {original_fps:.1f}")
 
         # 분석용 프레임 샘플링 간격
@@ -82,8 +110,11 @@ class HighlightExtractor:
 
             # 샘플링 간격에 맞는 프레임만 분석
             if frame_idx % frame_interval == 0:
+                # 가로 영상이면 9:16으로 센터 크롭 후 분석
+                cropped_frame = self._center_crop_to_portrait(frame)
+
                 # 분석용 해상도로 리사이즈
-                small_frame = cv2.resize(frame, (self.ANALYSIS_WIDTH, self.ANALYSIS_HEIGHT))
+                small_frame = cv2.resize(cropped_frame, (self.ANALYSIS_WIDTH, self.ANALYSIS_HEIGHT))
 
                 # 각 스코어 계산
                 motion = self._calc_motion_score(small_frame, prev_frame)

@@ -57,3 +57,13 @@ playground.xcworkspace
 *.xcuserstate
 *.xcbkptlist
 *.xcscmblueprint
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Output
+output/
