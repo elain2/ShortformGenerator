@@ -47,6 +47,7 @@ class HighlightExtractor:
         self.min_clip_duration = self.config.get("min_clip_duration", 3.0)
         self.max_clip_duration = self.config.get("max_clip_duration", 15.0)
         self.highlight_threshold = self.config.get("highlight_threshold", 0.5)
+        self._is_landscape = False  # 현재 처리 중인 영상의 가로/세로 여부
 
     def _load_config(self, config_path: str) -> dict:
         """설정 파일 로드"""
@@ -55,26 +56,17 @@ class HighlightExtractor:
                 return json.load(f)
         return {}
 
-    def _center_crop_to_portrait(self, frame: np.ndarray) -> np.ndarray:
-        """16:9 가로 영상을 9:16 세로 비율로 센터 크롭"""
+    def _rotate_to_portrait(self, frame: np.ndarray) -> np.ndarray:
+        """16:9 가로 영상을 90도 회전하여 세로로 변환"""
         h, w = frame.shape[:2]
 
         # 이미 세로 영상이면 그대로 반환
         if h >= w:
             return frame
 
-        # 9:16 비율로 크롭할 너비 계산 (높이 기준)
-        target_width = int(h * 9 / 16)
-
-        # 너비가 원본보다 크면 원본 너비 사용
-        if target_width > w:
-            target_width = w
-
-        # 센터 크롭
-        x_start = (w - target_width) // 2
-        cropped = frame[:, x_start:x_start + target_width]
-
-        return cropped
+        # 시계방향 90도 회전
+        rotated = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        return rotated
 
     def analyze_video(self, video_path: str) -> List[HighlightSegment]:
         """비디오 분석하여 하이라이트 구간 탐지"""
@@ -89,8 +81,8 @@ class HighlightExtractor:
         duration = total_frames / original_fps
 
         # 가로/세로 영상 판별
-        is_landscape = original_width > original_height
-        aspect_info = "16:9 가로 → 9:16 센터크롭" if is_landscape else "세로 영상"
+        self._is_landscape = original_width > original_height
+        aspect_info = "16:9 가로 → 90도 회전" if self._is_landscape else "세로 영상"
 
         print(f"비디오 분석 중: {video_path}")
         print(f"  - 해상도: {original_width}x{original_height} ({aspect_info})")
@@ -110,11 +102,11 @@ class HighlightExtractor:
 
             # 샘플링 간격에 맞는 프레임만 분석
             if frame_idx % frame_interval == 0:
-                # 가로 영상이면 9:16으로 센터 크롭 후 분석
-                cropped_frame = self._center_crop_to_portrait(frame)
+                # 가로 영상이면 90도 회전 후 분석
+                converted_frame = self._rotate_to_portrait(frame)
 
                 # 분석용 해상도로 리사이즈
-                small_frame = cv2.resize(cropped_frame, (self.ANALYSIS_WIDTH, self.ANALYSIS_HEIGHT))
+                small_frame = cv2.resize(converted_frame, (self.ANALYSIS_WIDTH, self.ANALYSIS_HEIGHT))
 
                 # 각 스코어 계산
                 motion = self._calc_motion_score(small_frame, prev_frame)
@@ -330,13 +322,20 @@ class HighlightExtractor:
                 filtered.append(seg)
         return filtered
 
-    def extract_clip(self, video_path: str, segment: HighlightSegment, output_path: str) -> bool:
+    def extract_clip(self, video_path: str, segment: HighlightSegment, output_path: str, is_landscape: bool = False) -> bool:
         """FFmpeg로 클립 추출 (9:16 세로, 무음)"""
-        # 크롭 및 스케일 필터 (중앙 기준 9:16)
-        filter_complex = (
-            f"crop=ih*9/16:ih,scale={self.OUTPUT_WIDTH}:{self.OUTPUT_HEIGHT},"
-            f"setsar=1:1"
-        )
+        if is_landscape:
+            # 가로 영상: 시계방향 90도 회전 후 스케일
+            filter_complex = (
+                f"transpose=1,scale={self.OUTPUT_WIDTH}:{self.OUTPUT_HEIGHT},"
+                f"setsar=1:1"
+            )
+        else:
+            # 세로 영상: 스케일만 적용
+            filter_complex = (
+                f"scale={self.OUTPUT_WIDTH}:{self.OUTPUT_HEIGHT},"
+                f"setsar=1:1"
+            )
 
         cmd = [
             'ffmpeg', '-y',
@@ -379,7 +378,7 @@ class HighlightExtractor:
 
             print(f"클립 추출 중: {clip_filename} ({segment.start_time:.1f}s - {segment.end_time:.1f}s)")
 
-            if self.extract_clip(video_path, segment, clip_path):
+            if self.extract_clip(video_path, segment, clip_path, self._is_landscape):
                 clips.append({
                     'filename': clip_filename,
                     'path': clip_path,
