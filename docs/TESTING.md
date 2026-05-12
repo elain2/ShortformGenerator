@@ -29,63 +29,67 @@ node -v
 
 ---
 
-## 빠른 시작 (MVP 테스트)
+## 빠른 시작
 
-### 전체 파이프라인 한번에 실행
+### 원클릭 실행 (권장)
+
+`generate_shorts.sh` 스크립트로 전체 파이프라인을 한 번에 실행:
 
 ```bash
-# 1. 가상환경 활성화
-source venv/bin/activate
+# 기본 실행
+./generate_shorts.sh
 
-# 2. 하이라이트 추출
-python src/extract_highlights.py input/videos -o output/highlights
+# 10개 클립 사용
+./generate_shorts.sh -n 10
 
-# 3. 자막 생성
-python src/generate_subtitles.py input/script.txt -o output/subtitles.json
+# 기존 클립 재사용 (하이라이트 추출 건너뛰기)
+./generate_shorts.sh --skip-highlights
 
-# 4. HyperFrames 에셋 복사
-cp output/highlights/*.mp4 hyperframes/assets/highlights/
-cp input/bgm.mp3 hyperframes/assets/bgm.mp3  # BGM 파일 필요
-
-# 5. HyperFrames 렌더링
-cd hyperframes && npx hyperframes render -o ../output/final.mp4
-
-# 6. 결과 확인 (macOS)
-open ../output/final.mp4
+# 도움말 보기
+./generate_shorts.sh --help
 ```
 
-또는 `run.sh` 스크립트 사용:
+### 파이프라인 단계
+
+| 단계 | 설명 | 건너뛰기 옵션 |
+|------|------|--------------|
+| 1/4 | 하이라이트 추출 | `--skip-highlights` |
+| 2/4 | 자막 생성 | `--skip-subtitles` |
+| 3/4 | 컴포지션 생성 | - |
+| 4/4 | HyperFrames 렌더링 | - |
+
+### 전체 옵션
+
+```
+옵션:
+    -v, --videos PATH       입력 비디오 폴더 (기본: input/videos)
+    -s, --script PATH       자막 스크립트 파일 (기본: input/script.txt)
+    -o, --output PATH       출력 파일 경로 (기본: output/final.mp4)
+    -n, --max-clips NUM     최대 클립 수 (기본: 5)
+    --bgm-volume FLOAT      BGM 볼륨 0-1 (기본: 0.3)
+    --skip-highlights       하이라이트 추출 건너뛰기
+    --skip-subtitles        자막 생성 건너뛰기
+    -h, --help              도움말 출력
+```
+
+### 사용 예시
+
 ```bash
-./run.sh src/extract_highlights.py input/videos -o output/highlights
-./run.sh src/generate_subtitles.py input/script.txt -o output/subtitles.json
+# 커스텀 비디오 폴더에서 3개 클립으로 생성
+./generate_shorts.sh -v ~/Movies -n 3
+
+# BGM 볼륨 조정
+./generate_shorts.sh --bgm-volume 0.5
+
+# 기존 클립으로 자막만 새로 생성
+./generate_shorts.sh --skip-highlights -s new_script.txt
 ```
 
 ---
 
-## 개별 모듈 테스트
+## 수동 실행 (개별 단계)
 
-### 하이라이트 추출
-
-#### 1. 테스트 영상 준비
-
-`input/videos/` 폴더에 테스트할 영상 파일을 넣습니다.
-
-```bash
-# 예시: 영상 파일 복사
-cp ~/Movies/test_video.mp4 input/videos/
-
-# 또는 여러 파일
-cp ~/Movies/*.mp4 input/videos/
-```
-
-**지원 포맷**: `.mp4`, `.mov`, `.avi`, `.mkv`
-
-**권장 테스트 영상**:
-- 16:9 가로 영상 (1920x1080 등) - 90도 회전 처리
-- 9:16 세로 영상 (1080x1920 등) - 그대로 처리
-- 다양한 장면이 포함된 1-3분 길이 영상
-
-#### 2. 하이라이트 추출 실행
+### 1. 하이라이트 추출
 
 ```bash
 source venv/bin/activate
@@ -94,99 +98,93 @@ source venv/bin/activate
 python src/extract_highlights.py input/videos -o output/highlights
 
 # 특정 파일만 처리
-python src/extract_highlights.py input/videos/test_video.mp4 -o output/highlights
-
-# 커스텀 설정 사용
-python src/extract_highlights.py input/videos -c input/config.json -o output/highlights
+python src/extract_highlights.py input/videos/video.mp4 -o output/highlights
 ```
 
-#### 3. 출력 확인
+**출력**: `output/highlights/` 폴더에 클립 생성
+
+### 2. 자막 생성
 
 ```bash
-# 추출된 클립 목록
-ls -la output/highlights/
-
-# 매니페스트 확인
-cat output/highlights_manifest.json
-```
-
-**예상 출력 구조**:
-```
-output/
-├── highlights/
-│   ├── test_video_clip_001.mp4
-│   ├── test_video_clip_002.mp4
-│   └── ...
-└── highlights_manifest.json
-```
-
-#### 4. 결과 검증
-
-**콘솔 출력 확인**:
-```
-비디오 분석 중: input/videos/test_video.mp4
-  - 해상도: 1920x1080 (16:9 가로 → 90도 회전)
-  - 길이: 120.0초, FPS: 30.0
-  - 5개 하이라이트 구간 탐지됨
-클립 추출 중: test_video_clip_001.mp4 (12.5s - 18.3s)
-...
-```
-
-**클립 해상도 확인**:
-```bash
-ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/highlights/test_video_clip_001.mp4
-# 예상 출력: 1080,1920
-```
-
----
-
-### 자막 생성
-
-#### 1. 스크립트 파일 확인
-```bash
-cat input/script.txt
-```
-
-#### 2. 자막 생성 실행
-```bash
-source venv/bin/activate
 python src/generate_subtitles.py input/script.txt -o output/subtitles.json
 ```
 
-#### 3. 결과 확인
+**출력**: `output/subtitles.json`
+
+### 3. 컴포지션 생성
+
 ```bash
-cat output/subtitles.json
-```
-
----
-
-### HyperFrames 렌더링
-
-#### 1. 에셋 준비
-```bash
-# 하이라이트 클립 복사
+# 클립을 HyperFrames로 복사
 cp output/highlights/*.mp4 hyperframes/assets/highlights/
 
-# BGM 파일 복사 (필수)
-cp /path/to/bgm.mp3 hyperframes/assets/bgm.mp3
+# 컴포지션 HTML 생성
+python src/generate_composition.py -n 5
 ```
 
-#### 2. 렌더링 실행
+**출력**: `hyperframes/index.html` (다중 클립 + 자막 포함)
+
+### 4. 렌더링
+
 ```bash
 cd hyperframes
 npx hyperframes render -o ../output/final.mp4
 ```
 
-#### 3. 결과 확인
+**출력**: `output/final.mp4`
+
+---
+
+## 개별 스크립트 상세
+
+### extract_highlights.py
+
+비디오에서 하이라이트 구간을 자동 감지하여 클립 추출.
+
 ```bash
-open ../output/final.mp4  # macOS
+python src/extract_highlights.py [입력] [옵션]
+
+옵션:
+    -o, --output PATH    출력 폴더 (기본: output/highlights)
+    -c, --config PATH    설정 파일 (기본: input/config.json)
+    --manifest PATH      매니페스트 출력 경로
+```
+
+**스코어링 기준**:
+- 모션 (40%): 프레임 간 움직임
+- 컬러 (35%): 채도, 밝기, 색상 다양성
+- 피사체 (25%): 에지 밀도, 중앙 집중도
+
+### generate_subtitles.py
+
+스크립트 파일에서 자막 타이밍 자동 생성.
+
+```bash
+python src/generate_subtitles.py [스크립트] [옵션]
+
+옵션:
+    -o, --output PATH    출력 파일 (기본: output/subtitles.json)
+```
+
+### generate_composition.py
+
+다중 클립과 자막을 조합하여 HyperFrames 컴포지션 생성.
+
+```bash
+python src/generate_composition.py [옵션]
+
+옵션:
+    -c, --clips PATH        클립 폴더 (기본: hyperframes/assets/highlights)
+    -s, --subtitles PATH    자막 파일 (기본: output/subtitles.json)
+    -o, --output PATH       출력 HTML (기본: hyperframes/index.html)
+    -n, --max-clips NUM     최대 클립 수 (기본: 5)
+    --bgm-volume FLOAT      BGM 볼륨 (기본: 0.3)
 ```
 
 ---
 
 ## 설정 조정
 
-`input/config.json`에서 파라미터 조정 가능:
+### input/config.json
 
 ```json
 {
@@ -221,11 +219,33 @@ open ../output/final.mp4  # macOS
 
 ---
 
+## 입력 파일 준비
+
+### 비디오 파일
+- 위치: `input/videos/`
+- 포맷: `.mp4`, `.mov`, `.avi`, `.mkv`
+- 16:9 가로 영상 → 자동 90도 회전
+- 9:16 세로 영상 → 그대로 처리
+
+### 스크립트 파일
+- 위치: `input/script.txt`
+- 형식: 한 줄에 한 문장
+```
+오늘은 정말 좋은 날이에요.
+여행을 떠나볼까요?
+함께 아름다운 풍경을 감상해봐요.
+```
+
+### BGM 파일
+- 위치: `hyperframes/assets/bgm.mp3`
+- 형식: MP3
+
+---
+
 ## 문제 해결
 
 ### ModuleNotFoundError: No module named 'cv2'
 ```bash
-# 가상환경 활성화 확인
 source venv/bin/activate
 pip install opencv-python numpy
 ```
@@ -233,12 +253,7 @@ pip install opencv-python numpy
 ### OpenCV 설치 오류
 ```bash
 pip install --upgrade pip
-pip install opencv-python-headless  # GUI 없는 버전
-```
-
-### FFmpeg 권한 오류
-```bash
-chmod +x /opt/homebrew/bin/ffmpeg
+pip install opencv-python-headless
 ```
 
 ### 클립이 추출되지 않는 경우
@@ -248,6 +263,14 @@ chmod +x /opt/homebrew/bin/ffmpeg
 ### HyperFrames 렌더링 실패
 ```bash
 cd hyperframes
-npm install  # 의존성 설치
+npm install
 npx hyperframes render -o ../output/final.mp4
 ```
+
+### 비디오가 첫 프레임에서 멈춤
+- `data-component="video"` 속성 확인
+- `data-start="0"` 속성 확인
+
+### BGM이 포함되지 않음
+- `hyperframes/assets/bgm.mp3` 파일 존재 확인
+- `data-component="audio"` 속성 확인
