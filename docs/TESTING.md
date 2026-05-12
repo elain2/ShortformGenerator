@@ -4,24 +4,69 @@
 
 ### 필수 설치
 ```bash
-# Python 패키지
-pip install opencv-python numpy
-
 # FFmpeg (macOS)
 brew install ffmpeg
+
+# Node.js (HyperFrames 렌더링용)
+brew install node
+```
+
+### Python 환경 설정
+```bash
+# 가상환경 생성 및 패키지 설치
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ### 설치 확인
 ```bash
-python3 -c "import cv2; print('OpenCV:', cv2.__version__)"
+source venv/bin/activate
+python -c "import cv2; print('OpenCV:', cv2.__version__)"
 ffmpeg -version
+node -v
 ```
 
 ---
 
-## 하이라이트 추출 테스트
+## 빠른 시작 (MVP 테스트)
 
-### 1. 테스트 영상 준비
+### 전체 파이프라인 한번에 실행
+
+```bash
+# 1. 가상환경 활성화
+source venv/bin/activate
+
+# 2. 하이라이트 추출
+python src/extract_highlights.py input/videos -o output/highlights
+
+# 3. 자막 생성
+python src/generate_subtitles.py input/script.txt -o output/subtitles.json
+
+# 4. HyperFrames 에셋 복사
+cp output/highlights/*.mp4 hyperframes/assets/highlights/
+cp input/bgm.mp3 hyperframes/assets/bgm.mp3  # BGM 파일 필요
+
+# 5. HyperFrames 렌더링
+cd hyperframes && npx hyperframes render -o ../output/final.mp4
+
+# 6. 결과 확인 (macOS)
+open ../output/final.mp4
+```
+
+또는 `run.sh` 스크립트 사용:
+```bash
+./run.sh src/extract_highlights.py input/videos -o output/highlights
+./run.sh src/generate_subtitles.py input/script.txt -o output/subtitles.json
+```
+
+---
+
+## 개별 모듈 테스트
+
+### 하이라이트 추출
+
+#### 1. 테스트 영상 준비
 
 `input/videos/` 폴더에 테스트할 영상 파일을 넣습니다.
 
@@ -36,14 +81,14 @@ cp ~/Movies/*.mp4 input/videos/
 **지원 포맷**: `.mp4`, `.mov`, `.avi`, `.mkv`
 
 **권장 테스트 영상**:
-- 16:9 가로 영상 (1920x1080 등) - 센터 크롭 테스트
-- 9:16 세로 영상 (1080x1920 등) - 크롭 없이 처리 확인
+- 16:9 가로 영상 (1920x1080 등) - 90도 회전 처리
+- 9:16 세로 영상 (1080x1920 등) - 그대로 처리
 - 다양한 장면이 포함된 1-3분 길이 영상
 
-### 2. 하이라이트 추출 실행
+#### 2. 하이라이트 추출 실행
 
 ```bash
-cd /Users/kayoung/Github/ShortVideoGenerator
+source venv/bin/activate
 
 # 기본 실행
 python src/extract_highlights.py input/videos -o output/highlights
@@ -55,7 +100,7 @@ python src/extract_highlights.py input/videos/test_video.mp4 -o output/highlight
 python src/extract_highlights.py input/videos -c input/config.json -o output/highlights
 ```
 
-### 3. 출력 확인
+#### 3. 출력 확인
 
 ```bash
 # 추출된 클립 목록
@@ -75,19 +120,19 @@ output/
 └── highlights_manifest.json
 ```
 
-### 4. 결과 검증
+#### 4. 결과 검증
 
-#### 콘솔 출력 확인
+**콘솔 출력 확인**:
 ```
 비디오 분석 중: input/videos/test_video.mp4
-  - 해상도: 1920x1080 (16:9 가로 → 9:16 센터크롭)
+  - 해상도: 1920x1080 (16:9 가로 → 90도 회전)
   - 길이: 120.0초, FPS: 30.0
   - 5개 하이라이트 구간 탐지됨
 클립 추출 중: test_video_clip_001.mp4 (12.5s - 18.3s)
 ...
 ```
 
-#### 클립 해상도 확인
+**클립 해상도 확인**:
 ```bash
 ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/highlights/test_video_clip_001.mp4
 # 예상 출력: 1080,1920
@@ -95,52 +140,46 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p
 
 ---
 
-## 자막 생성 테스트
+### 자막 생성
 
-### 1. 스크립트 파일 확인
+#### 1. 스크립트 파일 확인
 ```bash
 cat input/script.txt
 ```
 
-### 2. 자막 생성 실행
+#### 2. 자막 생성 실행
 ```bash
+source venv/bin/activate
 python src/generate_subtitles.py input/script.txt -o output/subtitles.json
 ```
 
-### 3. 결과 확인
+#### 3. 결과 확인
 ```bash
 cat output/subtitles.json
 ```
 
 ---
 
-## 전체 파이프라인 테스트
+### HyperFrames 렌더링
 
-### 1. 하이라이트 추출
+#### 1. 에셋 준비
 ```bash
-python src/extract_highlights.py input/videos -o output/highlights
-```
-
-### 2. 자막 생성
-```bash
-python src/generate_subtitles.py input/script.txt -o output/subtitles.json
-```
-
-### 3. HyperFrames 에셋 복사
-```bash
+# 하이라이트 클립 복사
 cp output/highlights/*.mp4 hyperframes/assets/highlights/
-cp input/bgm.mp3 hyperframes/assets/bgm.mp3  # BGM 파일 필요
+
+# BGM 파일 복사 (필수)
+cp /path/to/bgm.mp3 hyperframes/assets/bgm.mp3
 ```
 
-### 4. 최종 영상 렌더링
+#### 2. 렌더링 실행
 ```bash
 cd hyperframes
 npx hyperframes render -o ../output/final.mp4
 ```
 
-### 5. 결과 확인
+#### 3. 결과 확인
 ```bash
-open ../output/final.mp4  # macOS에서 영상 재생
+open ../output/final.mp4  # macOS
 ```
 
 ---
@@ -152,21 +191,44 @@ open ../output/final.mp4  # macOS에서 영상 재생
 ```json
 {
   "highlight_extraction": {
-    "min_clip_duration": 3.0,      // 최소 클립 길이 (초)
-    "max_clip_duration": 15.0,     // 최대 클립 길이 (초)
-    "highlight_threshold": 0.5,    // 하이라이트 임계값 (0-1)
+    "min_clip_duration": 3.0,
+    "max_clip_duration": 15.0,
+    "highlight_threshold": 0.5,
     "scoring_weights": {
-      "motion": 0.40,              // 움직임 가중치
-      "color": 0.35,               // 색감 가중치
-      "subject": 0.25              // 피사체 가중치
+      "motion": 0.40,
+      "color": 0.35,
+      "subject": 0.25
     }
+  },
+  "subtitle": {
+    "syllable_rate": 3.5,
+    "max_chars_per_line": 20
+  },
+  "bgm": {
+    "volume": 0.3,
+    "fade_in_duration": 1.0,
+    "fade_out_duration": 2.0
   }
 }
 ```
 
+| 파라미터 | 설명 | 기본값 |
+|---------|------|-------|
+| `min_clip_duration` | 최소 클립 길이 (초) | 3.0 |
+| `max_clip_duration` | 최대 클립 길이 (초) | 15.0 |
+| `highlight_threshold` | 하이라이트 임계값 (0-1) | 0.5 |
+| `syllable_rate` | 초당 음절 수 | 3.5 |
+
 ---
 
 ## 문제 해결
+
+### ModuleNotFoundError: No module named 'cv2'
+```bash
+# 가상환경 활성화 확인
+source venv/bin/activate
+pip install opencv-python numpy
+```
 
 ### OpenCV 설치 오류
 ```bash
@@ -182,3 +244,10 @@ chmod +x /opt/homebrew/bin/ffmpeg
 ### 클립이 추출되지 않는 경우
 - `highlight_threshold` 값을 낮춰보세요 (예: 0.3)
 - `min_clip_duration` 값을 낮춰보세요 (예: 2.0)
+
+### HyperFrames 렌더링 실패
+```bash
+cd hyperframes
+npm install  # 의존성 설치
+npx hyperframes render -o ../output/final.mp4
+```
