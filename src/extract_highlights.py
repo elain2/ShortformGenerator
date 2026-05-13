@@ -346,6 +346,9 @@ class HighlightExtractor:
             '-c:v', 'libx264',
             '-preset', 'medium',
             '-crf', '23',
+            '-r', '30',           # 30fps 고정
+            '-g', '30',           # 키프레임 간격 (1초마다)
+            '-keyint_min', '30',  # 최소 키프레임 간격
             '-an',  # 무음
             '-movflags', '+faststart',
             output_path

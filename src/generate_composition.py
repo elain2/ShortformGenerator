@@ -68,7 +68,8 @@ def generate_composition(
     # 비디오 요소 HTML 생성
     video_elements = []
     for i, clip in enumerate(clips):
-        video_html = f'''        <video class="clip"
+        video_html = f'''        <video id="clip-{i}"
+               class="clip"
                src="{clip['path']}"
                data-component="video"
                data-start="{clip['start']:.3f}"
