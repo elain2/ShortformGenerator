@@ -70,3 +70,18 @@ output/
 
 # Ignored scripts
 ignoreScripts/
+
+# Media files
+input/videos/
+input/*.mp3
+hyperframes/assets/
+
+# Temp files
+hyperframes/_segment_temp/
+*.zip
+
+# Claude Code
+.claude/
+
+# iOS app (separate project)
+ShortVideoGenerator-iOS/
