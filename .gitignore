@@ -67,3 +67,6 @@ __pycache__/
 
 # Output
 output/
+
+# Ignored scripts
+ignoreScripts/

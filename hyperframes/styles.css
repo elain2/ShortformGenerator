@@ -47,22 +47,28 @@ html, body {
 #subtitle-layer {
     z-index: 10;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    padding-bottom: 120px;
 }
 
 #subtitle-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    max-width: 90%;
-    padding: 0 40px;
+    width: 100%;
+    height: 100%;
+    padding: 0 60px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 
 #subtitle-text {
     /* 감성 vlog 자막 스타일 */
     font-size: 52px;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.5;
     letter-spacing: -0.02em;
 
     /* 크림색 텍스트 */
@@ -74,9 +80,8 @@ html, body {
         0 4px 8px rgba(0, 0, 0, 0.3),
         0 0 40px rgba(0, 0, 0, 0.4);
 
-    /* 애니메이션 초기 상태 */
-    opacity: 0;
-    transform: translateY(10px);
+    /* 줄바꿈 처리 */
+    white-space: pre-line;
 }
 
 /* 자막 애니메이션 상태 */

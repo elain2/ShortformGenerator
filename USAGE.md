@@ -81,14 +81,39 @@ cp output/highlights/*.mp4 hyperframes/assets/highlights/
 cp your_bgm.mp3 hyperframes/assets/bgm.mp3  # 선택
 ```
 
-### Step 5: 미리보기
+### Step 5: 컴포지션 생성
+
+```bash
+python src/generate_composition.py
+```
+
+**옵션:**
+| 옵션 | 설명 | 기본값 |
+|------|------|--------|
+| `-c, --clips` | 클립 폴더 경로 | `hyperframes/assets/highlights` |
+| `-s, --subtitles` | 자막 파일 경로 | `output/subtitles.json` |
+| `-o, --output` | 출력 HTML 경로 | `hyperframes/index.html` |
+| `-n, --max-clips` | 최대 클립 수 | 자동 (자막 길이 기준) |
+| `-d, --duration` | 최종 영상 길이(초) | 자동 (클립 길이 합계) |
+| `--bgm-volume` | BGM 볼륨 (0-1) | `0.3` |
+
+**예시:**
+```bash
+# 30초 영상 생성
+python src/generate_composition.py -d 30
+
+# 60초 영상, 최대 10개 클립
+python src/generate_composition.py -d 60 -n 10
+```
+
+### Step 6: 미리보기
 
 ```bash
 cd hyperframes
 npx hyperframes preview
 ```
 
-### Step 6: 최종 렌더링
+### Step 7: 최종 렌더링
 
 ```bash
 cd hyperframes
@@ -104,6 +129,16 @@ npx hyperframes render -o ../output/final.mp4
 python src/extract_highlights.py input/videos && \
 python src/generate_subtitles.py input/script.txt && \
 cp output/highlights/*.mp4 hyperframes/assets/highlights/ && \
+python src/generate_composition.py && \
+cd hyperframes && npx hyperframes render -o ../output/final.mp4
+```
+
+```bash
+# 영상 길이 지정 (예: 45초)
+python src/extract_highlights.py input/videos && \
+python src/generate_subtitles.py input/script.txt && \
+cp output/highlights/*.mp4 hyperframes/assets/highlights/ && \
+python src/generate_composition.py -d 45 && \
 cd hyperframes && npx hyperframes render -o ../output/final.mp4
 ```
 

@@ -12,11 +12,10 @@ class ShortsComposition {
 
         this.subtitles = [];
         this.duration = parseFloat(this.compositionRoot?.getAttribute('data-duration')) || 60;
+        this.currentSubtitle = null;
 
         this.settings = {
-            bgmVolume: 0.3,
-            subtitleFadeIn: 0.3,
-            subtitleFadeOut: 0.2
+            bgmVolume: 0.3
         };
 
         this.init();
@@ -26,6 +25,12 @@ class ShortsComposition {
         await this.loadSubtitles();
         this.setupVideoLayers();
         this.registerTimeline();
+
+        // 초기 상태: 자막 숨김
+        if (this.subtitleText) {
+            this.subtitleText.textContent = '';
+        }
+
         console.log('Shorts composition initialized');
         console.log(`  - 비디오: ${this.videos.length}개`);
         console.log(`  - 자막: ${this.subtitles.length}개`);
@@ -38,6 +43,7 @@ class ShortsComposition {
         if (dataElement) {
             try {
                 this.subtitles = JSON.parse(dataElement.textContent) || [];
+                console.log(`자막 로드됨: ${this.subtitles.length}개`);
             } catch (e) {
                 console.warn('자막 파싱 실패:', e);
             }
@@ -58,7 +64,6 @@ class ShortsComposition {
     }
 
     setupVideoLayers() {
-        // 각 비디오의 z-index 설정 (나중 클립이 위로)
         this.videos.forEach((video, index) => {
             video.style.zIndex = index + 1;
         });
@@ -83,41 +88,35 @@ class ShortsComposition {
     }
 
     seek(time) {
-        // 현재 시간에 맞는 자막 표시
+        console.log(`[Seek] time=${time.toFixed(2)}`);
         this.syncSubtitles(time);
     }
 
     syncSubtitles(currentTime) {
+        if (!this.subtitleText) return;
+
         const activeSubtitle = this.subtitles.find(sub => {
-            const start = sub.start_time || sub.startTime || 0;
-            const end = sub.end_time || sub.endTime || 0;
+            const start = sub.start_time ?? sub.startTime ?? 0;
+            const end = sub.end_time ?? sub.endTime ?? 0;
             return currentTime >= start && currentTime < end;
         });
 
         if (activeSubtitle) {
-            this.showSubtitle(activeSubtitle.text);
+            // 자막 표시
+            this.subtitleText.textContent = activeSubtitle.text;
+
+            // 텍스트 길이에 따른 스타일
+            const textLength = activeSubtitle.text.replace(/\n/g, '').length;
+            this.subtitleText.classList.remove('long-text', 'very-long-text');
+            if (textLength > 25) {
+                this.subtitleText.classList.add('very-long-text');
+            } else if (textLength > 18) {
+                this.subtitleText.classList.add('long-text');
+            }
         } else {
-            this.hideSubtitle();
+            // 자막 숨김
+            this.subtitleText.textContent = '';
         }
-    }
-
-    showSubtitle(text) {
-        if (this.subtitleText.textContent === text) return;
-
-        // 텍스트 길이에 따른 스타일
-        this.subtitleText.classList.remove('long-text', 'very-long-text');
-        if (text.length > 25) {
-            this.subtitleText.classList.add('very-long-text');
-        } else if (text.length > 18) {
-            this.subtitleText.classList.add('long-text');
-        }
-
-        this.subtitleText.textContent = text;
-        this.subtitleText.style.opacity = '1';
-    }
-
-    hideSubtitle() {
-        this.subtitleText.style.opacity = '0';
     }
 
     play() {
@@ -135,8 +134,8 @@ class ShortsComposition {
 
     getState(time) {
         const activeSubtitle = this.subtitles.find(sub => {
-            const start = sub.start_time || sub.startTime || 0;
-            const end = sub.end_time || sub.endTime || 0;
+            const start = sub.start_time ?? sub.startTime ?? 0;
+            const end = sub.end_time ?? sub.endTime ?? 0;
             return time >= start && time < end;
         });
 

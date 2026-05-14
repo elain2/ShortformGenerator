@@ -95,45 +95,44 @@ class SubtitleGenerator:
 
         return sentences
 
-    def split_long_sentence(self, sentence: str) -> List[str]:
-        """긴 문장을 적절한 길이로 분리"""
+    def split_long_sentence(self, sentence: str) -> str:
+        """긴 문장에 줄바꿈 추가 (화면에 맞게)"""
         if len(sentence) <= self.max_chars_per_line:
-            return [sentence]
+            return sentence
 
         # 쉼표, 조사 위치에서 분리 시도
         split_patterns = [
-            r',\s*',           # 쉼표
-            r'\s+(?=그리고|그러나|하지만|그래서|그런데)',  # 접속어 앞
-            r'(?<=[을를이가은는])\s+',  # 조사 뒤
+            (r',\s*', ', '),           # 쉼표
+            (r'\s+(?=그리고|그러나|하지만|그래서|그런데)', '\n'),  # 접속어 앞
+            (r'(?<=[을를이가은는도만])\s+', '\n'),  # 조사 뒤
         ]
 
-        parts = [sentence]
-        for pattern in split_patterns:
-            new_parts = []
-            for part in parts:
-                if len(part) > self.max_chars_per_line:
-                    split = re.split(pattern, part, maxsplit=1)
-                    new_parts.extend([s.strip() for s in split if s.strip()])
-                else:
-                    new_parts.append(part)
-            parts = new_parts
+        result = sentence
+        for pattern, replacement in split_patterns:
+            if len(result.replace('\n', '')) > self.max_chars_per_line:
+                # 패턴 위치에서 줄바꿈 삽입
+                parts = re.split(pattern, result)
+                if len(parts) > 1:
+                    result = replacement.join([p.strip() for p in parts if p.strip()])
 
-        # 여전히 긴 경우 강제 분리
-        final_parts = []
-        for part in parts:
-            while len(part) > self.max_chars_per_line:
-                # 단어 경계에서 분리
+        # 여전히 긴 줄이 있는 경우 강제 분리
+        lines = result.split('\n')
+        final_lines = []
+        for line in lines:
+            while len(line) > self.max_chars_per_line:
+                # 적절한 위치에서 분리
                 split_pos = self.max_chars_per_line
-                for i in range(self.max_chars_per_line, max(0, self.max_chars_per_line - 5), -1):
-                    if part[i] == ' ':
+                # 공백이나 조사 위치 찾기
+                for i in range(min(len(line)-1, self.max_chars_per_line), max(0, self.max_chars_per_line - 8), -1):
+                    if line[i] == ' ' or (i > 0 and line[i-1] in '을를이가은는도만'):
                         split_pos = i
                         break
-                final_parts.append(part[:split_pos].strip())
-                part = part[split_pos:].strip()
-            if part:
-                final_parts.append(part)
+                final_lines.append(line[:split_pos].strip())
+                line = line[split_pos:].strip()
+            if line:
+                final_lines.append(line)
 
-        return final_parts
+        return '\n'.join(final_lines)
 
     def calculate_timing(self, text: str, start_time: float) -> Tuple[float, float]:
         """텍스트의 타이밍 계산"""
@@ -155,25 +154,26 @@ class SubtitleGenerator:
         subtitle_id = 1
 
         for sentence in sentences:
-            # 긴 문장 분리
-            parts = self.split_long_sentence(sentence)
+            # 긴 문장에 줄바꿈 추가
+            text = self.split_long_sentence(sentence)
 
-            for text in parts:
-                syllables = self.count_korean_syllables(text)
-                duration, end_time = self.calculate_timing(text, current_time)
+            # 줄바꿈 제외한 텍스트로 음절 계산
+            text_for_count = text.replace('\n', '')
+            syllables = self.count_korean_syllables(text_for_count)
+            duration, end_time = self.calculate_timing(text_for_count, current_time)
 
-                entry = SubtitleEntry(
-                    id=subtitle_id,
-                    text=text,
-                    start_time=round(current_time, 3),
-                    end_time=round(end_time, 3),
-                    duration=round(duration, 3),
-                    syllable_count=syllables
-                )
-                subtitles.append(entry)
+            entry = SubtitleEntry(
+                id=subtitle_id,
+                text=text,
+                start_time=round(current_time, 3),
+                end_time=round(end_time, 3),
+                duration=round(duration, 3),
+                syllable_count=syllables
+            )
+            subtitles.append(entry)
 
-                current_time = end_time + self.SUBTITLE_GAP
-                subtitle_id += 1
+            current_time = end_time + self.SUBTITLE_GAP
+            subtitle_id += 1
 
         return subtitles
 
