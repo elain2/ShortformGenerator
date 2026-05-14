@@ -53,10 +53,11 @@ node -v
 
 | 단계 | 설명 | 건너뛰기 옵션 |
 |------|------|--------------|
-| 1/4 | 하이라이트 추출 | `--skip-highlights` |
-| 2/4 | 자막 생성 | `--skip-subtitles` |
-| 3/4 | 컴포지션 생성 | - |
-| 4/4 | HyperFrames 렌더링 | - |
+| 1/5 | 하이라이트 추출 | `--skip-highlights` |
+| 2/5 | 자막 생성 | `--skip-subtitles` |
+| 3/5 | 컴포지션 생성 | - |
+| 4/5 | HyperFrames 렌더링 | - |
+| 5/5 | 영상 정리 (used/unused) | `--skip-organize` |
 
 ### 전체 옵션
 
@@ -69,6 +70,7 @@ node -v
     --bgm-volume FLOAT      BGM 볼륨 0-1 (기본: 0.3)
     --skip-highlights       하이라이트 추출 건너뛰기
     --skip-subtitles        자막 생성 건너뛰기
+    --skip-organize         영상 정리 건너뛰기
     -h, --help              도움말 출력
 ```
 
@@ -132,6 +134,21 @@ npx hyperframes render -o ../output/final.mp4
 
 **출력**: `output/final.mp4`
 
+### 5. 영상 정리
+
+렌더링 후 원본 비디오를 사용 여부에 따라 분류:
+
+```bash
+python src/organize_videos.py
+
+# 실제 이동 없이 결과만 확인
+python src/organize_videos.py --dry-run
+```
+
+**결과**:
+- `input/videos/used/` - 숏폼에 사용된 원본 비디오
+- `input/videos/unused/` - 재활용 가능한 비디오
+
 ---
 
 ## 개별 스크립트 상세
@@ -179,6 +196,21 @@ python src/generate_composition.py [옵션]
     -n, --max-clips NUM     최대 클립 수 (기본: 5)
     --bgm-volume FLOAT      BGM 볼륨 (기본: 0.3)
 ```
+
+### organize_videos.py
+
+렌더링 후 원본 비디오를 사용 여부에 따라 분류.
+
+```bash
+python src/organize_videos.py [옵션]
+
+옵션:
+    -v, --videos PATH       비디오 폴더 (기본: input/videos)
+    -c, --composition PATH  컴포지션 HTML (기본: hyperframes/index.html)
+    --dry-run               실제 이동 없이 결과만 표시
+```
+
+**분류 기준**: 컴포지션 HTML에서 실제로 참조된 클립의 원본 비디오
 
 ---
 
