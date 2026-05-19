@@ -7,13 +7,15 @@
     "preview": "npx hyperframes preview",
     "render": "npx hyperframes render -o ../output/final.mp4",
     "render:quality": "npx hyperframes render -o ../output/final.mp4 --quality high",
+    "render:realtime": "node realtime-render.js",
     "dev": "npx hyperframes dev"
   },
   "dependencies": {
     "gsap": "^3.12.2"
   },
   "devDependencies": {
-    "hyperframes": "^0.1.0"
+    "hyperframes": "^0.1.0",
+    "puppeteer": "^22.0.0"
   },
   "hyperframes": {
     "width": 1080,
