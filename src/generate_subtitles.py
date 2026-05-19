@@ -65,8 +65,11 @@ class SubtitleGenerator:
         return max(1, int(count))
 
     def parse_script(self, script_text: str) -> List[str]:
-        """스크립트 텍스트를 문장 단위로 분리"""
-        # 줄바꿈으로 분리
+        """스크립트 텍스트를 문장 단위로 분리
+
+        각 줄이 하나의 자막입니다. (줄바꿈 = 자막 구분)
+        줄 내의 | 문자는 자막 내 줄바꿈을 의미합니다.
+        """
         lines = script_text.strip().split('\n')
 
         sentences = []
@@ -74,65 +77,20 @@ class SubtitleGenerator:
             line = line.strip()
             if not line:
                 continue
-
-            # 문장 부호로 분리 (. ! ? 기준)
-            parts = re.split(r'([.!?]+)', line)
-
-            current = ""
-            for i, part in enumerate(parts):
-                if re.match(r'^[.!?]+$', part):
-                    # 문장 부호는 이전 텍스트에 붙임
-                    current += part
-                    if current.strip():
-                        sentences.append(current.strip())
-                    current = ""
-                else:
-                    current = part
-
-            # 남은 텍스트
-            if current.strip():
-                sentences.append(current.strip())
+            sentences.append(line)
 
         return sentences
 
     def split_long_sentence(self, sentence: str) -> str:
-        """긴 문장에 줄바꿈 추가 (화면에 맞게)"""
-        if len(sentence) <= self.max_chars_per_line:
-            return sentence
+        """줄바꿈 처리
 
-        # 쉼표, 조사 위치에서 분리 시도
-        split_patterns = [
-            (r',\s*', ', '),           # 쉼표
-            (r'\s+(?=그리고|그러나|하지만|그래서|그런데)', '\n'),  # 접속어 앞
-            (r'(?<=[을를이가은는도만])\s+', '\n'),  # 조사 뒤
-        ]
-
-        result = sentence
-        for pattern, replacement in split_patterns:
-            if len(result.replace('\n', '')) > self.max_chars_per_line:
-                # 패턴 위치에서 줄바꿈 삽입
-                parts = re.split(pattern, result)
-                if len(parts) > 1:
-                    result = replacement.join([p.strip() for p in parts if p.strip()])
-
-        # 여전히 긴 줄이 있는 경우 강제 분리
-        lines = result.split('\n')
-        final_lines = []
-        for line in lines:
-            while len(line) > self.max_chars_per_line:
-                # 적절한 위치에서 분리
-                split_pos = self.max_chars_per_line
-                # 공백이나 조사 위치 찾기
-                for i in range(min(len(line)-1, self.max_chars_per_line), max(0, self.max_chars_per_line - 8), -1):
-                    if line[i] == ' ' or (i > 0 and line[i-1] in '을를이가은는도만'):
-                        split_pos = i
-                        break
-                final_lines.append(line[:split_pos].strip())
-                line = line[split_pos:].strip()
-            if line:
-                final_lines.append(line)
-
-        return '\n'.join(final_lines)
+        | 문자를 줄바꿈으로 변환
+        예: "첫 번째 줄|두 번째 줄" → "첫 번째 줄\n두 번째 줄"
+        """
+        # | 마커를 줄바꿈으로 변환
+        if '|' in sentence:
+            return '\n'.join([part.strip() for part in sentence.split('|')])
+        return sentence
 
     def calculate_timing(self, text: str, start_time: float) -> Tuple[float, float]:
         """텍스트의 타이밍 계산"""
