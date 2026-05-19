@@ -80,6 +80,14 @@ hyperframes/assets/
 hyperframes/_segment_temp/
 *.zip
 
+# Node.js
+node_modules/
+
+# HyperFrames cache
+hyperframes/.thumbnails/
+hyperframes/.waveform-cache/
+hyperframes/renders/
+
 # Claude Code
 .claude/
 
