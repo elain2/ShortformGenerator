@@ -32,8 +32,8 @@ class SubtitleGenerator:
     # 기본 더빙 속도 (음절/초)
     DEFAULT_SYLLABLE_RATE = 3.5
 
-    # 자막 간 간격 (초)
-    SUBTITLE_GAP = 0.1
+    # 자막 간 간격 (초) - 0으로 설정하여 자막이 연속으로 이어지도록
+    SUBTITLE_GAP = 0.0
 
     def __init__(self, config_path: str = "input/config.json"):
         self.config = self._load_config(config_path)
