@@ -39,7 +39,6 @@ class SubtitleGenerator:
         self.config = self._load_config(config_path)
         self.syllable_rate = self.config.get("syllable_rate", self.DEFAULT_SYLLABLE_RATE)
         self.min_duration = self.config.get("min_subtitle_duration", 1.0)
-        self.max_duration = self.config.get("max_subtitle_duration", 5.0)
         self.max_chars_per_line = self.config.get("max_chars_per_line", 20)
 
     def _load_config(self, config_path: str) -> dict:
@@ -97,8 +96,8 @@ class SubtitleGenerator:
         syllables = self.count_korean_syllables(text)
         duration = syllables / self.syllable_rate
 
-        # 최소/최대 제한 적용
-        duration = max(self.min_duration, min(self.max_duration, duration))
+        # 최소 제한만 적용 (max_duration 제거: 긴 문장도 음절 수에 맞게 표시)
+        duration = max(self.min_duration, duration)
 
         end_time = start_time + duration
         return duration, end_time
@@ -148,8 +147,7 @@ class SubtitleGenerator:
             'source': script_path,
             'settings': {
                 'syllable_rate': self.syllable_rate,
-                'min_duration': self.min_duration,
-                'max_duration': self.max_duration
+                'min_duration': self.min_duration
             },
             'subtitles': [asdict(s) for s in subtitles],
             'total_count': len(subtitles),
