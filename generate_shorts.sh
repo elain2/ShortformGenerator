@@ -170,7 +170,7 @@ print_step "4/5" "HyperFrames 렌더링"
 print_info "출력: $OUTPUT_FILE"
 
 cd "$HYPERFRAMES_DIR"
-npx hyperframes render -o "../$OUTPUT_FILE"
+npx hyperframes render --output "../$OUTPUT_FILE"
 cd ..
 
 # Step 5: 영상 정리
