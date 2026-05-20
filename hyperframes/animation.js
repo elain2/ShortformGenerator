@@ -84,12 +84,28 @@ class ShortsComposition {
             getState: (time) => this.getState(time)
         };
 
+        // HyperFrames 공식 API 등록
+        window.__hf = {
+            duration: this.duration,
+            seek: (time) => this.seek(time)
+        };
+
         console.log(`Timeline registered: ${compositionId}`);
     }
 
     seek(time) {
         console.log(`[Seek] time=${time.toFixed(2)}`);
         this.syncSubtitles(time);
+        this.syncCSSAnimations(time);
+    }
+
+    syncCSSAnimations(time) {
+        // CSS 애니메이션을 특정 시점으로 동기화
+        const items = document.querySelectorAll('.subtitle-item');
+        items.forEach(item => {
+            item.style.animationDelay = `-${time}s`;
+            item.style.animationPlayState = 'paused';
+        });
     }
 
     syncSubtitles(currentTime) {
