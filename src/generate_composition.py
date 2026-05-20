@@ -202,43 +202,62 @@ def reorder_clips_by_sync(clips: list, subtitles: list, sync_map: dict, total_du
         current_time = 0.0
         used_indices = set()
 
-        # 지정된 순서대로 클립 배치
-        for idx in clip_order:
-            if idx < len(clips) and idx not in used_indices:
-                clip = clips[idx].copy()
-                clip['start'] = current_time
-                ordered_clips.append(clip)
-                current_time += clip['duration']
-                used_indices.add(idx)
+        def add_clip_with_trim(clip_data, start_time, remaining_duration):
+            """클립 추가 (필요시 트리밍)"""
+            new_clip = clip_data.copy()
+            new_clip['start'] = start_time
 
-        # 사용되지 않은 클립들 추가
+            if new_clip['duration'] > remaining_duration + 0.1:
+                # 트리밍 필요
+                new_clip['trim_end'] = remaining_duration
+                new_clip['original_duration'] = new_clip['duration']
+                new_clip['duration'] = remaining_duration
+                return new_clip, remaining_duration, True  # trimmed
+            return new_clip, new_clip['duration'], False  # not trimmed
+
+        # 지정된 순서대로 클립 배치 (total_duration까지만)
+        for idx in clip_order:
+            if current_time >= total_duration - 0.1:
+                break
+            if idx < len(clips) and idx not in used_indices:
+                remaining = total_duration - current_time
+                clip, duration_added, trimmed = add_clip_with_trim(
+                    clips[idx], current_time, remaining
+                )
+                ordered_clips.append(clip)
+                current_time += duration_added
+                used_indices.add(idx)
+                if trimmed:
+                    break
+
+        # 사용되지 않은 클립들 추가 (total_duration까지만)
         for idx, clip in enumerate(clips):
+            if current_time >= total_duration - 0.1:
+                break
             if idx not in used_indices:
-                new_clip = clip.copy()
-                new_clip['start'] = current_time
+                remaining = total_duration - current_time
+                new_clip, duration_added, trimmed = add_clip_with_trim(
+                    clip, current_time, remaining
+                )
                 ordered_clips.append(new_clip)
-                current_time += new_clip['duration']
+                current_time += duration_added
+                if trimmed:
+                    break
 
         # total_duration까지 채우기 (클립 순환)
-        if current_time < total_duration - 0.1:
+        if current_time < total_duration - 0.1 and ordered_clips:
             cycle_ptr = 0
             while current_time < total_duration - 0.1:
                 src_clip = ordered_clips[cycle_ptr % len(ordered_clips)]
-                new_clip = src_clip.copy()
-                new_clip['start'] = current_time
-
                 remaining = total_duration - current_time
-                if new_clip['duration'] > remaining + 0.1:
-                    new_clip['trim_end'] = remaining
-                    new_clip['original_duration'] = new_clip['duration']
-                    new_clip['duration'] = remaining
-                    ordered_clips.append(new_clip)
-                    current_time += remaining
+                new_clip, duration_added, trimmed = add_clip_with_trim(
+                    src_clip, current_time, remaining
+                )
+                ordered_clips.append(new_clip)
+                current_time += duration_added
+                if trimmed:
                     break
-                else:
-                    ordered_clips.append(new_clip)
-                    current_time += new_clip['duration']
-                    cycle_ptr += 1
+                cycle_ptr += 1
 
         # 디버그 출력
         print("  [스마트 매칭] 최종 클립 배치:")
