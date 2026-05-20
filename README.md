@@ -54,6 +54,16 @@ pip install -r requirements.txt
 cd hyperframes && npm install
 ```
 
+### Gemini API 설정 (선택)
+
+스마트 매칭 기능을 사용하려면 Gemini API 키가 필요합니다:
+
+```bash
+export GEMINI_API_KEY="your-api-key"
+```
+
+[Google AI Studio](https://aistudio.google.com/)에서 무료 API 키를 발급받을 수 있습니다.
+
 ---
 
 ## 실행 방법
@@ -211,6 +221,26 @@ python3 src/generate_composition.py
 | `-n, --max-clips` | 최대 클립 수 | 자동 (자막 길이 기준) |
 | `-d, --duration` | 최종 영상 길이(초) | 자동 (클립 길이 합계) |
 | `--bgm-volume` | BGM 볼륨 (0-1) | `0.3` |
+| `--smart-match` | Gemini로 클립-자막 스마트 매칭 | 비활성화 |
+| `--subtitle-scale` | 자막 표시 시간 배율 | `1.0` |
+
+### Step 5-1: 스마트 매칭 (선택)
+
+Gemini API를 사용하여 자막 내용에 맞는 클립을 자동으로 배치합니다:
+
+```bash
+python3 src/generate_composition.py --smart-match
+```
+
+**동작 방식:**
+1. 각 클립에서 썸네일 추출
+2. Gemini가 자막 내용과 클립 이미지 분석
+3. 자막 흐름에 맞게 클립 순서 재배치
+4. 클립은 항상 연속 배치 (갭 없음)
+
+**예시:**
+- "고양이와 함께한 시간" 자막 → 고양이가 보이는 클립 배치
+- "푸른 바다를 바라보며" 자막 → 바다/수중 장면 클립 배치
 
 ### Step 6: 미리보기
 
@@ -254,6 +284,7 @@ npx hyperframes render --output ../output/final.mp4
 ```
 
 기본 속도는 3.5음절/초로, 일반적인 더빙 속도입니다.
+긴 문장도 음절 수에 맞게 충분한 시간이 할당됩니다 (최대 시간 제한 없음).
 
 **속도 조정:**
 ```bash
@@ -262,6 +293,12 @@ python src/generate_subtitles.py input/script.txt --rate 4.0
 
 # 느린 말하기 (3.0음절/초)
 python src/generate_subtitles.py input/script.txt --rate 3.0
+```
+
+**자막 표시 시간 배율:**
+```bash
+# 자막 표시 시간을 50% 더 길게
+python src/generate_composition.py --subtitle-scale 1.5
 ```
 
 ### subtitles.json 구조
@@ -392,6 +429,7 @@ python src/generate_subtitles.py input/script.txt --rate 3.0
 |------|------|------|
 | 하이라이트 추출 | Python + OpenCV | 장면 분석, 클립 추출 |
 | 자막 처리 | Python | 타이밍 계산, JSON 생성 |
+| 스마트 매칭 | Gemini API | 클립-자막 맥락 분석 |
 | 영상 합성 | HyperFrames | HTML → MP4 렌더링 |
 | 최종 편집 | VLLO | 더빙, 미세 조정 |
 
@@ -520,6 +558,11 @@ npx hyperframes preview  # npx로 실행
 1. `--rate` 옵션으로 음절 속도 조정
 2. 또는 `subtitles.json`에서 직접 타이밍 수정
 3. `./render_segments.sh`로 재렌더링
+
+### 스마트 매칭이 작동하지 않음
+1. `GEMINI_API_KEY` 환경변수 설정 확인
+2. `google-generativeai` 패키지 설치 확인: `pip install google-generativeai`
+3. API 할당량 초과 여부 확인
 
 ---
 
