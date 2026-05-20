@@ -90,14 +90,16 @@ def analyze_clips_with_gemini(clips: list, subtitles: list, clips_dir: str) -> d
 자막 목록:
 {chr(10).join(subtitle_texts)}
 
-각 자막의 내용과 가장 잘 어울리는 클립을 매칭해주세요.
-- 고양이, 반려동물 관련 자막 → 고양이/동물이 보이는 클립
-- 바다, 프리다이빙 관련 자막 → 바다/수중 장면 클립
+자막의 내러티브 흐름에 맞게 클립을 재정렬해주세요.
+예) 고양이, 반려동물 관련 자막 → 고양이가 보이는 클립
+
+모든 클립을 한 번씩 사용하여 최적의 순서를 제안해주세요.
+클립은 자막 순서대로 연속 재생됩니다.
 
 JSON 형식으로만 응답하세요:
-{{"매칭": [{{"자막": 0, "클립": [0, 1]}}, {{"자막": 4, "클립": [3, 4]}}]}}
+{{"순서": [3, 0, 1, 4, 2, 5]}}
 
-명확하게 맥락이 맞는 것만 매칭하세요."""
+위 예시는 클립3 → 클립0 → 클립1 → 클립4 → 클립2 → 클립5 순으로 재생한다는 의미입니다."""
 
     contents.append(prompt)
 
@@ -160,6 +162,14 @@ JSON 형식으로만 응답하세요:
             response_text = response_text.split('```')[1].split('```')[0]
 
         result = json.loads(response_text)
+
+        # 새 형식: {"순서": [3, 0, 1, 4, 2, 5]}
+        if '순서' in result:
+            clip_order = result['순서']
+            print(f"    클립 순서: {clip_order}")
+            return {'clip_order': clip_order}
+
+        # 이전 형식 호환: {"매칭": [...]}
         sync_map = {}
         for match in result.get('매칭', []):
             sub_idx = match.get('자막')
@@ -176,20 +186,72 @@ JSON 형식으로만 응답하세요:
 
 
 def reorder_clips_by_sync(clips: list, subtitles: list, sync_map: dict, total_duration: float) -> list:
-    """싱크 맵에 따라 클립 순서 재배치 (빈 타임라인 없이 연속 배치)
+    """클립 순서 재배치 (항상 연속 배치, 갭 없음)
 
-    전략:
-    1. 매칭된 자막 시간대를 기준으로 클립 배치 순서 결정
-    2. 클립은 항상 연속 배치 (gap 없음)
-    3. 소스 클립이 길면 필요한 만큼만 사용 (trim_end)
+    sync_map 형식:
+    - 새 형식: {'clip_order': [3, 0, 1, 4, 2, 5]} - 클립 재생 순서
+    - 이전 형식: {자막인덱스: [클립인덱스들]} - 자막-클립 매칭 (호환용)
     """
     if not sync_map:
         return clips
 
-    # 자막 시간 정보
-    sub_times = [{'start': sub.get('start_time', 0), 'end': sub.get('end_time', 0)} for sub in subtitles]
+    # 새 형식: clip_order가 있으면 해당 순서로 연속 배치
+    if 'clip_order' in sync_map:
+        clip_order = sync_map['clip_order']
+        ordered_clips = []
+        current_time = 0.0
+        used_indices = set()
 
-    # (자막시작시간, 클립인덱스) 리스트 생성 후 시간순 정렬
+        # 지정된 순서대로 클립 배치
+        for idx in clip_order:
+            if idx < len(clips) and idx not in used_indices:
+                clip = clips[idx].copy()
+                clip['start'] = current_time
+                ordered_clips.append(clip)
+                current_time += clip['duration']
+                used_indices.add(idx)
+
+        # 사용되지 않은 클립들 추가
+        for idx, clip in enumerate(clips):
+            if idx not in used_indices:
+                new_clip = clip.copy()
+                new_clip['start'] = current_time
+                ordered_clips.append(new_clip)
+                current_time += new_clip['duration']
+
+        # total_duration까지 채우기 (클립 순환)
+        if current_time < total_duration - 0.1:
+            cycle_ptr = 0
+            while current_time < total_duration - 0.1:
+                src_clip = ordered_clips[cycle_ptr % len(ordered_clips)]
+                new_clip = src_clip.copy()
+                new_clip['start'] = current_time
+
+                remaining = total_duration - current_time
+                if new_clip['duration'] > remaining + 0.1:
+                    new_clip['trim_end'] = remaining
+                    new_clip['original_duration'] = new_clip['duration']
+                    new_clip['duration'] = remaining
+                    ordered_clips.append(new_clip)
+                    current_time += remaining
+                    break
+                else:
+                    ordered_clips.append(new_clip)
+                    current_time += new_clip['duration']
+                    cycle_ptr += 1
+
+        # 디버그 출력
+        print("  [스마트 매칭] 최종 클립 배치:")
+        for clip in ordered_clips:
+            trim_info = f" (트리밍: {clip.get('trim_end', clip['duration']):.1f}s)" if 'trim_end' in clip else ""
+            print(f"    {clip['start']:.2f}s: {clip['filename']} ({clip['duration']:.2f}s){trim_info}")
+
+        return ordered_clips
+
+    # 이전 형식 호환: 자막-클립 매칭 → 순서 추출 후 연속 배치
+    sub_times = [{'start': sub.get('start_time', 0)} for sub in subtitles]
+
+    # 자막 시간순으로 클립 순서 결정
     sync_entries = []
     for sub_idx, clip_indices in sync_map.items():
         if sub_idx >= len(sub_times):
@@ -199,102 +261,11 @@ def reorder_clips_by_sync(clips: list, subtitles: list, sync_map: dict, total_du
             if clip_idx < len(clips):
                 sync_entries.append((target_time, clip_idx))
 
-    sync_entries.sort(key=lambda x: x[0])  # 자막 시작 시간순 정렬
+    sync_entries.sort(key=lambda x: x[0])
+    clip_order = [idx for _, idx in sync_entries]
 
-    # 매칭된 클립과 매칭 안 된 클립 분리
-    synced_clip_indices = set(idx for _, idx in sync_entries)
-    unsynced_indices = [i for i in range(len(clips)) if i not in synced_clip_indices]
-
-    # 결과 클립 리스트 구성: 자막 시간대에 맞춰 클립 순서 결정
-    ordered_clips = []
-    unsynced_ptr = 0
-    current_timeline = 0.0
-
-    for target_time, clip_idx in sync_entries:
-        # target_time까지 채우기 위해 unsynced 클립들로 채움
-        while current_timeline < target_time - 0.1 and unsynced_ptr < len(unsynced_indices):
-            fill_idx = unsynced_indices[unsynced_ptr]
-            fill_clip = clips[fill_idx].copy()
-            fill_clip['start'] = current_timeline
-
-            available_time = target_time - current_timeline
-            if fill_clip['duration'] > available_time + 0.1:
-                # 클립이 너무 길면 트리밍
-                fill_clip['trim_end'] = available_time
-                fill_clip['original_duration'] = fill_clip['duration']
-                fill_clip['duration'] = available_time
-                ordered_clips.append(fill_clip)
-                current_timeline += available_time
-                unsynced_ptr += 1
-                break
-            else:
-                ordered_clips.append(fill_clip)
-                current_timeline += fill_clip['duration']
-                unsynced_ptr += 1
-
-        # 매칭된 클립 배치
-        synced_clip = clips[clip_idx].copy()
-        synced_clip['start'] = current_timeline
-
-        # 다음 sync entry까지의 시간 또는 total_duration까지
-        next_target = None
-        current_entry_idx = sync_entries.index((target_time, clip_idx))
-        if current_entry_idx + 1 < len(sync_entries):
-            next_target = sync_entries[current_entry_idx + 1][0]
-
-        ordered_clips.append(synced_clip)
-        current_timeline += synced_clip['duration']
-
-    # 남은 unsynced 클립들로 total_duration까지 채움
-    while current_timeline < total_duration - 0.1 and unsynced_ptr < len(unsynced_indices):
-        fill_idx = unsynced_indices[unsynced_ptr]
-        fill_clip = clips[fill_idx].copy()
-        fill_clip['start'] = current_timeline
-
-        remaining_time = total_duration - current_timeline
-        if fill_clip['duration'] > remaining_time + 0.1:
-            # 클립이 너무 길면 트리밍
-            fill_clip['trim_end'] = remaining_time
-            fill_clip['original_duration'] = fill_clip['duration']
-            fill_clip['duration'] = remaining_time
-            ordered_clips.append(fill_clip)
-            current_timeline += remaining_time
-            break
-        else:
-            ordered_clips.append(fill_clip)
-            current_timeline += fill_clip['duration']
-            unsynced_ptr += 1
-
-    # 아직도 타임라인이 남았으면 마지막 클립 반복 또는 확장
-    if current_timeline < total_duration - 0.1 and ordered_clips:
-        # 사용 가능한 클립으로 채움 (처음부터 다시 순환)
-        all_clip_indices = list(range(len(clips)))
-        cycle_ptr = 0
-        while current_timeline < total_duration - 0.1:
-            cycle_idx = all_clip_indices[cycle_ptr % len(all_clip_indices)]
-            cycle_clip = clips[cycle_idx].copy()
-            cycle_clip['start'] = current_timeline
-
-            remaining_time = total_duration - current_timeline
-            if cycle_clip['duration'] > remaining_time + 0.1:
-                cycle_clip['trim_end'] = remaining_time
-                cycle_clip['original_duration'] = cycle_clip['duration']
-                cycle_clip['duration'] = remaining_time
-                ordered_clips.append(cycle_clip)
-                current_timeline += remaining_time
-                break
-            else:
-                ordered_clips.append(cycle_clip)
-                current_timeline += cycle_clip['duration']
-                cycle_ptr += 1
-
-    # 디버그 출력
-    print("  [스마트 매칭] 최종 클립 배치:")
-    for clip in ordered_clips:
-        trim_info = f" (트리밍: {clip.get('trim_end', clip['duration']):.1f}s)" if 'trim_end' in clip else ""
-        print(f"    {clip['start']:.2f}s: {clip['filename']} ({clip['duration']:.2f}s){trim_info}")
-
-    return ordered_clips
+    # 새 형식으로 변환하여 재귀 호출
+    return reorder_clips_by_sync(clips, subtitles, {'clip_order': clip_order}, total_duration)
 
 
 def get_video_duration(video_path: str) -> float:
