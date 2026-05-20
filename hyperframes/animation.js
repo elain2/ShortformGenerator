@@ -100,11 +100,20 @@ class ShortsComposition {
     }
 
     syncCSSAnimations(time) {
-        // CSS 애니메이션을 특정 시점으로 동기화
+        // JavaScript로 직접 자막 visibility 제어 (HyperFrames 렌더링 호환)
         const items = document.querySelectorAll('.subtitle-item');
-        items.forEach(item => {
-            item.style.animationDelay = `-${time}s`;
-            item.style.animationPlayState = 'paused';
+
+        items.forEach((item) => {
+            // data-start, data-end 속성에서 시간 정보 읽기
+            const startTime = parseFloat(item.dataset.start || 0);
+            const endTime = parseFloat(item.dataset.end || 0);
+
+            // 현재 시간이 자막 표시 구간인지 확인
+            if (time >= startTime && time < endTime) {
+                item.style.opacity = '1';
+            } else {
+                item.style.opacity = '0';
+            }
         });
     }
 

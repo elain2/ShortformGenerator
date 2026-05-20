@@ -373,6 +373,8 @@ def generate_subtitle_html(subtitles: list) -> str:
     html_parts = []
     for i, sub in enumerate(subtitles):
         text = sub.get('text', '')
+        start_time = sub.get('start_time', sub.get('startTime', 0))
+        end_time = sub.get('end_time', sub.get('endTime', 0))
 
         # 줄 수에 따른 클래스 (1줄: 기본, 2줄: long-text, 3줄+: very-long-text)
         line_count = text.count('\n') + 1
@@ -385,8 +387,9 @@ def generate_subtitle_html(subtitles: list) -> str:
         # HTML 이스케이프
         escaped_text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
+        # data-start, data-end 속성 추가 (JavaScript에서 사용)
         html_parts.append(
-            f'                <span class="subtitle-item subtitle-{i}{size_class}">{escaped_text}</span>'
+            f'                <span class="subtitle-item subtitle-{i}{size_class}" data-start="{start_time:.3f}" data-end="{end_time:.3f}">{escaped_text}</span>'
         )
 
     return "\n".join(html_parts)
