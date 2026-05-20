@@ -88,19 +88,31 @@ def create_segment_html(original_content, segment_start, segment_end, segment_di
         content
     )
 
-    # data-start 추가/수정 (컴포지션 시작 오프셋)
-    if 'data-start="' in content:
-        content = re.sub(
-            r'(data-composition-id="[^"]*"[^>]*?)data-start="[\d.]+"',
-            f'\\1data-start="{segment_start:.3f}"',
-            content
-        )
-    else:
-        content = re.sub(
-            r'(data-composition-id="[^"]*")',
-            f'\\1\n         data-start="{segment_start:.3f}"',
-            content
-        )
+    # data-start는 composition-root에 추가하지 않음 (중첩 미디어 문제 방지)
+    # 대신 비디오 클립의 상대적 시작 시간만 조정 (아래 rebuild_video_layer에서 처리)
+
+    # 기존 data-start가 composition-root에 있으면 제거
+    content = re.sub(
+        r'(<div id="composition-root"[^>]*?)\s*data-start="[\d.]+"',
+        r'\1',
+        content
+    )
+
+    # window.__timelines 등록이 없으면 추가
+    if 'window.__timelines' not in content:
+        timeline_script = f'''    <!-- HyperFrames Timeline 등록 -->
+    <script>
+        window.__timelines = window.__timelines || {{}};
+        window.__timelines['shorts-main'] = {{
+            duration: {segment_duration:.3f},
+            seek: function(t) {{ if(window.shortsComposition) window.shortsComposition.seek(t); }},
+            play: function() {{ if(window.shortsComposition) window.shortsComposition.play(); }},
+            pause: function() {{ if(window.shortsComposition) window.shortsComposition.pause(); }}
+        }};
+    </script>
+'''
+        # </head> 태그 앞에 스크립트 삽입
+        content = content.replace('</head>', timeline_script + '</head>')
 
     # 세그먼트 범위의 클립만 포함하도록 필터링
     clips = get_clips_in_range(original_content, segment_start, segment_end)
